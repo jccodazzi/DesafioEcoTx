@@ -18,11 +18,11 @@
 // Configuración LoRa
 // ========================
 #define RF_FREQUENCY			433000000	// Frecuencia en Hz (433 MHz)
-#define TX_OUTPUT_POWER			5			// Potencia TX (dBm)
+#define TX_OUTPUT_POWER			18			// Potencia TX (dBm)
 #define LORA_BANDWIDTH			0			// 0:125kHz, 1:250kHz, 2:500kHz
-#define LORA_SPREADING_FACTOR	7			// SF7..SF12
-#define LORA_CODINGRATE			1			// 1:4/5, 2:4/6, 3:4/7, 4:4/8
-#define LORA_PREAMBLE_LENGTH	8			// Preamble
+#define LORA_SPREADING_FACTOR	12			// SF7..SF12
+#define LORA_CODINGRATE			4			// 1:4/5, 2:4/6, 3:4/7, 4:4/8
+#define LORA_PREAMBLE_LENGTH	24			// Preamble
 #define LORA_SYMBOL_TIMEOUT		0			// Timeout símbolos (no usado)
 #define LORA_FIX_LENGTH_PAYLOAD_ON	false	// Payload variable
 #define LORA_IQ_INVERSION_ON		false	// IQ normal
@@ -48,7 +48,7 @@ char txpacket[BUFFER_SIZE];				// Buffer para el paquete LoRa
 bool lora_idle = true;					// Indica si el radio está libre para transmitir
 uint32_t packetCount = 0;				// Contador de paquetes enviados
 unsigned long lastSendMs = 0;			// Marca de tiempo del último envío
-const unsigned long sendIntervalMs = 1000;	// Intervalo de envío (1 segundo)
+const unsigned long sendIntervalMs = 10000;	// Intervalo de envío (1 segundo)
 static RadioEvents_t RadioEvents;			// Estructura de callbacks del driver de radio
 String lastLat = "";						// Última latitud mostrada en TFT
 String lastLon = "";						// Última longitud mostrada en TFT
