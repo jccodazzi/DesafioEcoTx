@@ -1,5 +1,5 @@
 /*******************************************************
- DesafioEcoTx V. 0.03
+ DesafioEcoTx V. 0.04
 
  * Heltec Wireless Tracker V1.2
  * - Lee GPS con HT_TinyGPS++
@@ -12,6 +12,9 @@
  * - Espera ACK del receptor (DesafioEcoRx) tras cada envío
  * - Reenvía el mismo paquete si no se recibe ACK
  * - Muestra estado ACK en TFT
+ * - Paquete binario de telemetría si no hay fix GPS
+ * - Telemetría: número de paquete, tiempo, lat, lon, velocidad, distancia, voltaje, corriente, energía
+ * - Telemetría en struct para envío compacto (13 bytes)
  *******************************************************/
 #include "Arduino.h"			// Núcleo Arduino
 #include "LoRaWan_APP.h"		// Stack/driver de radio (SX1262) de Heltec
@@ -66,6 +69,18 @@ String lastAckStr = "";                    // Último estado ACK mostrado en TFT
 // Nuevo: tiempo de inicio de la ventana ACK para detectar expiración en loop()
 unsigned long ackWindowStartMs = 0;
 
+// --- Añadir aquí la definición de la struct de telemetría ---
+typedef struct __attribute__((packed)) {
+    uint16_t pkt_num;         // Número de paquete (16 bits)
+    uint16_t elapsed_s;      // Tiempo transcurrido en segundos (16 bits)
+    int32_t  lat;            // Latitud en microgrados (1e-6) -> int32_t
+    int32_t  lon;            // Longitud en microgrados (1e-6) -> int32_t
+    uint8_t  speed;          // Velocidad (8 bits) - por ejemplo km/h
+    uint32_t distance_cm;    // Distancia recorrida en centímetros (32 bits)
+    uint16_t voltage_mv;     // Voltaje en milivoltios (16 bits)
+    uint16_t current_ma;     // Corriente en mA (16 bits)
+    uint16_t energy_ah_tenth;// Energía total en Ah/10 (p.ej. 12.3 Ah -> 123) (16 bits)
+} TelemetryPkt;
 
 // ========================
 // Prototipos de callbacks de radio
@@ -93,7 +108,7 @@ void setup() {
     tft.st7735_write_str(0, 0, (String)"GPS+LoRa433MHz");	// Título
     tft.st7735_write_str(0, 20, (String)"Iniciando...");	// Mensaje
     tft.st7735_write_str(0, 40, (String)" DesafioEcoTx ");	// Version
-    tft.st7735_write_str(0, 60, (String)"    V 0.03    ");	// Version
+    tft.st7735_write_str(0, 60, (String)"    V 0.04    ");	// Version
     
     delay(3000);
     tft.st7735_fill_screen(ST7735_BLACK);					// Pantalla en negro
@@ -223,13 +238,30 @@ void loop() {
                         latBuf, lonBuf);
             }
         } else {
-            snprintf(txpacket, BUFFER_SIZE,
-                    "Pkt:%lu GPS no fix",
-                    (unsigned long)packetCount);
+            // Construcción de paquete binario usando TelemetryPkt (valores constantes para pruebas)
+            TelemetryPkt pkt;
+            pkt.pkt_num = (uint16_t)packetCount;        // número de paquete
+            pkt.elapsed_s = (uint16_t) ( (millis()/1000) & 0xFFFF ); // tiempo transcurrido en s (ejemplo)
+            // Valores constantes temporales (reemplazar por GPS/mediciones reales luego)
+            pkt.lat =  123456789;    // ejemplo microgrados (12.3456789°)
+            pkt.lon = -987654321;    // ejemplo microgrados (-98.7654321°)
+            pkt.speed = 50;          // 50 km/h
+            pkt.distance_cm = 123456; // 1.23456 km -> 123456 cm
+            pkt.voltage_mv = 12300;  // 12.300 V -> 12300 mV
+            pkt.current_ma = 500;    // 500 mA
+            pkt.energy_ah_tenth = 123; // 12.3 Ah -> 123
+
+            // Copiar binario a txpacket y enviar
+            size_t pktLen = sizeof(TelemetryPkt);
+            if (pktLen <= BUFFER_SIZE) {
+                memcpy(txpacket, &pkt, pktLen);
+                Serial.printf("TX bin -> pkt %u len %u\n", (unsigned)pkt.pkt_num, (unsigned)pktLen);
+                Radio.Send((uint8_t *)txpacket, (uint8_t)pktLen);
+                lora_idle = false;
+            } else {
+                Serial.println("Telemetry packet too large for tx buffer");
+            }
         }
-        Serial.printf("TX -> \"%s\" (len %d)\n", txpacket, strlen(txpacket));
-        Radio.Send((uint8_t *)txpacket, strlen(txpacket)); 
-        lora_idle = false;
         // OnTxDone iniciará la ventana Rx para ACK
     }
 }
